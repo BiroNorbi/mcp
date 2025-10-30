@@ -1,0 +1,76 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+pip-wheel-metadata/
+*.egg
+
+# Pytest / coverage
+.pytest_cache/
+.mypy_cache/
+.cache/
+.coverage
+coverage.xml
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker and credentials
+.docker/config.json
+
+# Virtualenv and env dirs
+env/
+venv/
+ENV/
+env.bak/
+
+# Secrets and environment files
+.env
+.env.*
+.secrets
+secrets.yml
+secrets.yaml
+credentials.json
+.netrc
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+*.pfx
+
+# Common database files
+*.sqlite3
+*.db
+
+# Cloud and kube config
+.aws/credentials
+.gcloud
+.kube/
+kubeconfig
+
+# Misc
+instance/
+local_settings.py
+settings_local.py
+.coverage
+

@@ -1,0 +1,12 @@
+{
+    "servers": {
+        "testserver": {
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "https://akos-test.fastmcp.app/mcp"
+            ]
+        }
+    }
+}
+ 
