@@ -1,231 +1,49 @@
 """
-Dev Workspace Assistant - A comprehensive MCP server for developers
-Provides tools for code generation, project scaffolding, git operations, and more.
+Dev Utility Assistant - A practical MCP server with useful development tools
+Provides text processing, code generation, calculations, and data manipulation utilities.
 """
-import os
 import json
-import subprocess
-from pathlib import Path
+import re
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from fastmcp import FastMCP, Context
+from fastmcp import FastMCP
 
-mcp = FastMCP("Dev Workspace Assistant")
+mcp = FastMCP("Dev Utility Assistant")
 
 # ============================================================================
 # TOOLS - Interactive actions the AI can perform
 # ============================================================================
 
 @mcp.tool()
-def create_project_structure(
-    project_name: str,
-    project_type: str = "python",
-    include_tests: bool = True,
-    include_docs: bool = True,
-    base_path: str = "."
-) -> Dict[str, Any]:
+def calculate(expression: str) -> Dict[str, Any]:
     """
-    Scaffold a complete project structure with best practices.
+    Safely evaluate mathematical expressions.
     
     Args:
-        project_name: Name of the project
-        project_type: Type of project (python, node, go, rust, web)
-        include_tests: Whether to create test directory structure
-        include_docs: Whether to create documentation directory
-        base_path: Base path where project should be created
+        expression: Mathematical expression to evaluate (e.g., "2 + 2 * 3")
     
     Returns:
-        Dictionary with created directories and files
+        Dictionary with result and formatted expression
     """
-    templates = {
-        "python": {
-            "dirs": ["src", "tests", "docs", ".github/workflows"],
-            "files": {
-                "README.md": f"# {project_name}\n\nA Python project.\n",
-                "pyproject.toml": f'[project]\nname = "{project_name}"\nversion = "0.1.0"\n',
-                ".gitignore": "__pycache__/\n*.pyc\n.env\n.venv/\n",
-                "src/__init__.py": "",
-                "tests/__init__.py": "",
-            }
-        },
-        "node": {
-            "dirs": ["src", "tests", "dist", "docs"],
-            "files": {
-                "README.md": f"# {project_name}\n\nA Node.js project.\n",
-                "package.json": json.dumps({"name": project_name, "version": "0.1.0"}, indent=2),
-                ".gitignore": "node_modules/\ndist/\n.env\n",
-                "src/index.js": "// Main entry point\n",
-            }
-        },
-        "web": {
-            "dirs": ["css", "js", "assets", "pages"],
-            "files": {
-                "README.md": f"# {project_name}\n\nA web project.\n",
-                "index.html": "<!DOCTYPE html>\n<html>\n<head>\n  <title>{}</title>\n</head>\n<body>\n</body>\n</html>\n".format(project_name),
-                "css/style.css": "/* Main styles */\n",
-                "js/main.js": "// Main JavaScript\n",
-            }
-        }
-    }
-    
-    template = templates.get(project_type, templates["python"])
-    project_path = Path(base_path) / project_name
-    created = {"directories": [], "files": []}
-    
     try:
-        project_path.mkdir(parents=True, exist_ok=True)
+        # Remove any potentially dangerous characters
+        safe_expr = re.sub(r'[^0-9+\-*/(). ]', '', expression)
         
-        # Create directories
-        for dir_name in template["dirs"]:
-            dir_path = project_path / dir_name
-            dir_path.mkdir(parents=True, exist_ok=True)
-            created["directories"].append(str(dir_path))
-        
-        # Create files
-        for file_name, content in template["files"].items():
-            file_path = project_path / file_name
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            file_path.write_text(content)
-            created["files"].append(str(file_path))
+        # Evaluate safely
+        result = eval(safe_expr)
         
         return {
-            "success": True,
-            "project_path": str(project_path),
-            "created": created,
-            "message": f"Successfully created {project_type} project: {project_name}"
+            "expression": expression,
+            "safe_expression": safe_expr,
+            "result": result,
+            "formatted": f"{expression} = {result}"
         }
     except Exception as e:
         return {
-            "success": False,
             "error": str(e),
-            "message": f"Failed to create project: {str(e)}"
+            "expression": expression,
+            "message": "Could not evaluate expression"
         }
-
-
-@mcp.tool()
-def analyze_code_metrics(file_path: str) -> Dict[str, Any]:
-    """
-    Analyze code metrics for a given file (lines, functions, complexity estimates).
-    
-    Args:
-        file_path: Path to the code file to analyze
-    
-    Returns:
-        Dictionary with code metrics and analysis
-    """
-    try:
-        path = Path(file_path)
-        if not path.exists():
-            return {"error": f"File not found: {file_path}"}
-        
-        content = path.read_text(encoding='utf-8')
-        lines = content.split('\n')
-        
-        metrics = {
-            "file": file_path,
-            "total_lines": len(lines),
-            "blank_lines": sum(1 for line in lines if not line.strip()),
-            "comment_lines": sum(1 for line in lines if line.strip().startswith('#')),
-            "code_lines": 0,
-            "functions": [],
-            "classes": [],
-            "imports": [],
-        }
-        
-        # Count code lines
-        metrics["code_lines"] = metrics["total_lines"] - metrics["blank_lines"] - metrics["comment_lines"]
-        
-        # Detect functions and classes (basic parsing)
-        for i, line in enumerate(lines, 1):
-            stripped = line.strip()
-            if stripped.startswith('def '):
-                func_name = stripped.split('(')[0].replace('def ', '').strip()
-                metrics["functions"].append({"name": func_name, "line": i})
-            elif stripped.startswith('class '):
-                class_name = stripped.split('(')[0].split(':')[0].replace('class ', '').strip()
-                metrics["classes"].append({"name": class_name, "line": i})
-            elif stripped.startswith('import ') or stripped.startswith('from '):
-                metrics["imports"].append(stripped)
-        
-        metrics["complexity_score"] = min(10, metrics["code_lines"] / 50 + len(metrics["functions"]) * 0.5)
-        
-        return metrics
-        
-    except Exception as e:
-        return {"error": str(e)}
-
-
-@mcp.tool()
-def git_status_summary(repo_path: str = ".") -> Dict[str, Any]:
-    """
-    Get a comprehensive git status summary for a repository.
-    
-    Args:
-        repo_path: Path to the git repository (defaults to current directory)
-    
-    Returns:
-        Dictionary with git status information
-    """
-    try:
-        result = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        
-        if result.returncode != 0:
-            return {"error": "Not a git repository or git not available"}
-        
-        lines = result.stdout.strip().split('\n') if result.stdout.strip() else []
-        
-        status = {
-            "modified": [],
-            "added": [],
-            "deleted": [],
-            "untracked": [],
-            "renamed": []
-        }
-        
-        for line in lines:
-            if not line:
-                continue
-            state, file = line[:2], line[3:]
-            
-            if 'M' in state:
-                status["modified"].append(file)
-            elif 'A' in state:
-                status["added"].append(file)
-            elif 'D' in state:
-                status["deleted"].append(file)
-            elif '??' in state:
-                status["untracked"].append(file)
-            elif 'R' in state:
-                status["renamed"].append(file)
-        
-        # Get current branch
-        branch_result = subprocess.run(
-            ["git", "branch", "--show-current"],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        
-        return {
-            "branch": branch_result.stdout.strip() if branch_result.returncode == 0 else "unknown",
-            "status": status,
-            "total_changes": sum(len(v) for v in status.values()),
-            "clean": all(len(v) == 0 for v in status.values())
-        }
-        
-    except subprocess.TimeoutExpired:
-        return {"error": "Git command timed out"}
-    except FileNotFoundError:
-        return {"error": "Git not installed or not in PATH"}
-    except Exception as e:
-        return {"error": str(e)}
 
 
 @mcp.tool()
@@ -239,7 +57,7 @@ def generate_code_snippet(
     Generate common code snippets and boilerplate.
     
     Args:
-        language: Programming language (python, javascript, go, rust)
+        language: Programming language (python, javascript, typescript, go, rust)
         snippet_type: Type of snippet (function, class, test, api_endpoint, cli)
         name: Name of the code element
         description: Optional description for documentation
@@ -247,25 +65,30 @@ def generate_code_snippet(
     Returns:
         Dictionary with generated code and metadata
     """
+    desc = description or f"TODO: Add description for {name}"
+    
     snippets = {
         "python": {
-            "function": '''def {name}():
+            "function": f'''def {name}():
     """
-    {description}
+    {desc}
     """
     pass
 ''',
-            "class": '''class {name}:
+            "class": f'''class {name}:
     """
-    {description}
+    {desc}
     """
     
     def __init__(self):
         pass
+    
+    def __str__(self):
+        return f"<{name}>"
 ''',
-            "test": '''def test_{name}():
+            "test": f'''def test_{name}():
     """
-    Test for {description}
+    Test for {desc}
     """
     # Arrange
     
@@ -274,28 +97,32 @@ def generate_code_snippet(
     # Assert
     assert True
 ''',
-            "api_endpoint": '''@app.route("/{name}", methods=["GET", "POST"])
+            "api_endpoint": f'''@app.route("/{name}", methods=["GET", "POST"])
 def {name}():
     """
-    {description}
+    {desc}
     """
-    return {{"message": "Success"}}, 200
+    return {{"message": "Success", "data": None}}, 200
 ''',
         },
         "javascript": {
-            "function": '''function {name}() {{
-  // {description}
+            "function": f'''function {name}() {{
+  // {desc}
   
 }}
 ''',
-            "class": '''class {name} {{
+            "class": f'''class {name} {{
   constructor() {{
-    // {description}
+    // {desc}
+  }}
+  
+  toString() {{
+    return '{name}';
   }}
 }}
 ''',
-            "test": '''describe('{name}', () => {{
-  it('should {description}', () => {{
+            "test": f'''describe('{name}', () => {{
+  it('should {desc}', () => {{
     // Arrange
     
     // Act
@@ -305,13 +132,31 @@ def {name}():
   }});
 }});
 ''',
+        },
+        "typescript": {
+            "function": f'''function {name}(): void {{
+  // {desc}
+  
+}}
+''',
+            "class": f'''class {name} {{
+  constructor() {{
+    // {desc}
+  }}
+  
+  toString(): string {{
+    return '{name}';
+  }}
+}}
+''',
         }
     }
     
-    desc = description or f"TODO: Add description for {name}"
-    
     if language not in snippets:
-        return {"error": f"Language '{language}' not supported"}
+        return {
+            "error": f"Language '{language}' not supported",
+            "available_languages": list(snippets.keys())
+        }
     
     if snippet_type not in snippets[language]:
         return {
@@ -319,89 +164,331 @@ def {name}():
             "available_types": list(snippets[language].keys())
         }
     
-    code = snippets[language][snippet_type].format(name=name, description=desc)
+    code = snippets[language][snippet_type]
     
     return {
         "language": language,
         "type": snippet_type,
         "name": name,
         "code": code,
-        "lines": len(code.split('\n'))
+        "lines": len(code.split('\n')),
+        "description": desc
     }
 
 
 @mcp.tool()
-def search_workspace(
-    query: str,
-    file_pattern: str = "*",
-    base_path: str = ".",
-    max_results: int = 10
+def text_transform(
+    text: str,
+    operation: str
 ) -> Dict[str, Any]:
     """
-    Search for files and content in the workspace.
+    Transform text in various ways.
     
     Args:
-        query: Search query (filename or content to search for)
-        file_pattern: Glob pattern for file filtering (e.g., "*.py", "*.js")
-        base_path: Base directory to search from
-        max_results: Maximum number of results to return
+        text: Input text to transform
+        operation: Type of transformation (uppercase, lowercase, titlecase, 
+                   reverse, snake_case, camelCase, kebab-case, count_words,
+                   count_chars, remove_whitespace)
     
     Returns:
-        Dictionary with search results
+        Dictionary with transformed text and metadata
+    """
+    operations = {
+        "uppercase": lambda t: t.upper(),
+        "lowercase": lambda t: t.lower(),
+        "titlecase": lambda t: t.title(),
+        "reverse": lambda t: t[::-1],
+        "snake_case": lambda t: re.sub(r'[\s\-]+', '_', t.lower()),
+        "camelCase": lambda t: ''.join(word.capitalize() if i > 0 else word.lower() 
+                                      for i, word in enumerate(re.split(r'[\s_\-]+', t))),
+        "kebab-case": lambda t: re.sub(r'[\s_]+', '-', t.lower()),
+        "remove_whitespace": lambda t: ''.join(t.split()),
+    }
+    
+    if operation not in operations:
+        return {
+            "error": f"Operation '{operation}' not supported",
+            "available_operations": list(operations.keys())
+        }
+    
+    result = operations[operation](text)
+    
+    return {
+        "original": text,
+        "operation": operation,
+        "result": result,
+        "original_length": len(text),
+        "result_length": len(result),
+        "word_count": len(text.split()),
+        "char_count": len(text)
+    }
+
+
+@mcp.tool()
+def json_formatter(
+    json_string: str,
+    indent: int = 2,
+    sort_keys: bool = False
+) -> Dict[str, Any]:
+    """
+    Format and validate JSON strings.
+    
+    Args:
+        json_string: JSON string to format
+        indent: Number of spaces for indentation
+        sort_keys: Whether to sort object keys alphabetically
+    
+    Returns:
+        Dictionary with formatted JSON and validation info
     """
     try:
-        base = Path(base_path)
-        results = {"files": [], "matches": []}
+        # Parse JSON
+        data = json.loads(json_string)
         
-        # Search by filename
-        for path in base.rglob(file_pattern):
-            if path.is_file() and query.lower() in path.name.lower():
-                results["files"].append({
-                    "path": str(path),
-                    "size": path.stat().st_size,
-                    "modified": datetime.fromtimestamp(path.stat().st_mtime).isoformat()
-                })
-                
-                if len(results["files"]) >= max_results:
-                    break
+        # Format with options
+        formatted = json.dumps(data, indent=indent, sort_keys=sort_keys)
         
-        # Search content in text files
-        if len(results["files"]) < max_results:
-            for path in base.rglob(file_pattern):
-                if not path.is_file() or path.suffix in ['.pyc', '.exe', '.dll', '.so']:
-                    continue
-                    
-                try:
-                    content = path.read_text(encoding='utf-8', errors='ignore')
-                    if query.lower() in content.lower():
-                        # Find line numbers
-                        lines = content.split('\n')
-                        matching_lines = [
-                            {"line": i+1, "content": line.strip()}
-                            for i, line in enumerate(lines)
-                            if query.lower() in line.lower()
-                        ][:3]  # First 3 matches per file
-                        
-                        results["matches"].append({
-                            "path": str(path),
-                            "occurrences": len(matching_lines),
-                            "preview": matching_lines
-                        })
-                        
-                        if len(results["matches"]) >= max_results:
-                            break
-                except:
-                    continue
+        # Get structure info
+        def count_structure(obj, depth=0):
+            if isinstance(obj, dict):
+                return {
+                    "objects": 1 + sum(count_structure(v, depth+1).get("objects", 0) for v in obj.values()),
+                    "arrays": sum(count_structure(v, depth+1).get("arrays", 0) for v in obj.values()),
+                    "keys": len(obj),
+                    "max_depth": max([depth] + [count_structure(v, depth+1).get("max_depth", depth) for v in obj.values()])
+                }
+            elif isinstance(obj, list):
+                return {
+                    "objects": sum(count_structure(item, depth+1).get("objects", 0) for item in obj),
+                    "arrays": 1 + sum(count_structure(item, depth+1).get("arrays", 0) for item in obj),
+                    "keys": 0,
+                    "max_depth": max([depth] + [count_structure(item, depth+1).get("max_depth", depth) for item in obj])
+                }
+            return {"objects": 0, "arrays": 0, "keys": 0, "max_depth": depth}
+        
+        structure = count_structure(data)
         
         return {
-            "query": query,
-            "total_files": len(results["files"]),
-            "total_content_matches": len(results["matches"]),
-            "results": results
+            "valid": True,
+            "formatted": formatted,
+            "original_length": len(json_string),
+            "formatted_length": len(formatted),
+            "structure": structure,
+            "root_type": type(data).__name__
         }
         
+    except json.JSONDecodeError as e:
+        return {
+            "valid": False,
+            "error": str(e),
+            "message": "Invalid JSON format"
+        }
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "valid": False,
+            "error": str(e)
+        }
+
+
+@mcp.tool()
+def regex_match(
+    pattern: str,
+    text: str,
+    flags: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Test regular expression patterns against text.
+    
+    Args:
+        pattern: Regular expression pattern
+        text: Text to match against
+        flags: Optional regex flags (i=ignorecase, m=multiline, s=dotall)
+    
+    Returns:
+        Dictionary with match results and groups
+    """
+    try:
+        # Parse flags
+        regex_flags = 0
+        if flags:
+            if 'i' in flags:
+                regex_flags |= re.IGNORECASE
+            if 'm' in flags:
+                regex_flags |= re.MULTILINE
+            if 's' in flags:
+                regex_flags |= re.DOTALL
+        
+        # Compile and search
+        compiled = re.compile(pattern, regex_flags)
+        matches = list(compiled.finditer(text))
+        
+        match_details = []
+        for match in matches:
+            match_details.append({
+                "match": match.group(0),
+                "start": match.start(),
+                "end": match.end(),
+                "groups": list(match.groups()),
+                "groupdict": match.groupdict()
+            })
+        
+        return {
+            "pattern": pattern,
+            "text_length": len(text),
+            "match_count": len(matches),
+            "matches": match_details[:10],  # Limit to 10 matches
+            "has_matches": len(matches) > 0
+        }
+        
+    except re.error as e:
+        return {
+            "error": f"Invalid regex pattern: {str(e)}",
+            "pattern": pattern
+        }
+    except Exception as e:
+        return {
+            "error": str(e)
+        }
+
+
+@mcp.tool()
+def uuid_generator(
+    count: int = 1,
+    format: str = "uuid4"
+) -> Dict[str, Any]:
+    """
+    Generate UUIDs in various formats.
+    
+    Args:
+        count: Number of UUIDs to generate (max 100)
+        format: UUID format (uuid4, hex, int, short)
+    
+    Returns:
+        Dictionary with generated UUIDs
+    """
+    import uuid
+    
+    count = min(count, 100)  # Limit to 100
+    uuids = []
+    
+    for _ in range(count):
+        new_uuid = uuid.uuid4()
+        
+        if format == "uuid4":
+            uuids.append(str(new_uuid))
+        elif format == "hex":
+            uuids.append(new_uuid.hex)
+        elif format == "int":
+            uuids.append(new_uuid.int)
+        elif format == "short":
+            # Short UUID (first 8 chars)
+            uuids.append(str(new_uuid)[:8])
+        else:
+            uuids.append(str(new_uuid))
+    
+    return {
+        "count": len(uuids),
+        "format": format,
+        "uuids": uuids
+    }
+@mcp.tool()
+def base64_encode_decode(
+    text: str,
+    operation: str = "encode"
+) -> Dict[str, Any]:
+    """
+    Encode or decode base64 strings.
+    
+    Args:
+        text: Text to encode or decode
+        operation: 'encode' or 'decode'
+    
+    Returns:
+        Dictionary with result
+    """
+    import base64
+    
+    try:
+        if operation == "encode":
+            encoded = base64.b64encode(text.encode()).decode()
+            return {
+                "operation": "encode",
+                "input": text,
+                "result": encoded,
+                "length": len(encoded)
+            }
+        elif operation == "decode":
+            decoded = base64.b64decode(text.encode()).decode()
+            return {
+                "operation": "decode",
+                "input": text,
+                "result": decoded,
+                "length": len(decoded)
+            }
+        else:
+            return {
+                "error": "Operation must be 'encode' or 'decode'"
+            }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Failed to encode/decode"
+        }
+
+
+@mcp.tool()
+def timestamp_converter(
+    value: Optional[str] = None,
+    operation: str = "to_timestamp"
+) -> Dict[str, Any]:
+    """
+    Convert between timestamps and human-readable dates.
+    
+    Args:
+        value: Timestamp (int/str) or date string (ISO format)
+        operation: 'to_timestamp', 'to_date', or 'now'
+    
+    Returns:
+        Dictionary with conversion results
+    """
+    try:
+        if operation == "now":
+            now = datetime.now()
+            return {
+                "timestamp": int(now.timestamp()),
+                "iso": now.isoformat(),
+                "readable": now.strftime("%Y-%m-%d %H:%M:%S"),
+                "utc": datetime.utcnow().isoformat() + "Z"
+            }
+        elif operation == "to_date":
+            if not value:
+                return {"error": "Value required for conversion"}
+            timestamp = int(float(value))
+            dt = datetime.fromtimestamp(timestamp)
+            return {
+                "timestamp": timestamp,
+                "iso": dt.isoformat(),
+                "readable": dt.strftime("%Y-%m-%d %H:%M:%S"),
+                "day_of_week": dt.strftime("%A")
+            }
+        elif operation == "to_timestamp":
+            if not value:
+                return {"error": "Value required for conversion"}
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return {
+                "date": value,
+                "timestamp": int(dt.timestamp()),
+                "readable": dt.strftime("%Y-%m-%d %H:%M:%S")
+            }
+        else:
+            return {
+                "error": "Operation must be 'now', 'to_timestamp', or 'to_date'"
+            }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Failed to convert timestamp"
+        }
 
 
 # ============================================================================

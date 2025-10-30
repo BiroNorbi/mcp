@@ -6,7 +6,15 @@
                 "mcp-remote",
                 "https://akos-test.fastmcp.app/mcp"
             ]
+        },
+        "rooster": {
+            "command": "npx",
+            "args": [
+                "mcp-remote",
+                "https://ruling-sapphire-rooster.fastmcp.app/mcp"
+            ]
         }
+       
     }
 }
  
